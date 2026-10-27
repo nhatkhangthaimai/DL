@@ -1,0 +1,10 @@
+# Bỏ qua hoàn toàn dataset gốc
+MSU-MFSD/
+
+# Bỏ qua các file checkpoint mô hình nặng > 100MB
+*.pth
+*.pt
+checkpoints/
+
+# Bỏ qua dữ liệu ảnh đã trích xuất
+processed/

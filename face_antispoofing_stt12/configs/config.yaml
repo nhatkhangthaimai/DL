@@ -1,0 +1,66 @@
+# ==============================================================================
+# Face Anti-Spoofing Detection Configuration (STT: 12)
+# MSU Mobile Face Spoofing Database (MSU-MFSD)
+# ResNet34 + Texture (LBP) Feature Fusion Architecture
+# ==============================================================================
+
+project:
+  name: "face_antispoofing_stt12"
+  title: "Face Anti-Spoofing Detection for Authentication Systems"
+  device: "cuda" # Automatically falls back to cpu if cuda unavailable
+  seed: 42
+
+paths:
+  raw_dataset_dir: "../MSU-MFSD"
+  processed_dir: "processed"
+  checkpoints_dir: "checkpoints"
+  results_dir: "results"
+  logs_dir: "logs"
+  best_model_path: "checkpoints/best_model.pth"
+  baseline_model_path: "checkpoints/best_baseline_model.pth"
+
+dataset:
+  image_size: 224
+  frames_per_video: 12 # Uniformly sample 12 frames per video to balance richness and storage
+  margin_ratio: 0.15 # 15% contextual boundary around face bbox to preserve spoof cues
+  # Official Train subjects (15 total): 02, 03, 05, 06, 07, 08, 09, 11, 12, 21, 22, 34, 53, 54, 55
+  # We partition subjects strictly by Subject ID to prevent any data leakage:
+  # Validation subjects (3 subjects, 20%): 34, 53, 54
+  # Train subjects (12 subjects, 80%): 02, 03, 05, 06, 07, 08, 09, 11, 12, 21, 22, 55
+  # Official Test subjects (20 total): 01, 13, 14, 23, 24, 26, 28, 29, 30, 32, 33, 35, 36, 37, 39, 42, 48, 49, 50, 51
+  val_subjects: ["34", "53", "54"]
+
+lbp:
+  radius: 1
+  n_points: 8
+  method: "uniform" # Standard Ojala uniform LBP produces 59 bins for P=8
+  grid_x: 4 # 4x4 spatial grid = 16 blocks * 59 bins = 944 dimensions
+  grid_y: 4
+  feature_dim: 944
+
+model:
+  backbone: "resnet34"
+  pretrained: true
+  num_classes: 2 # 0: LIVE, 1: SPOOF
+  resnet_feature_dim: 512
+  lbp_feature_dim: 944
+  fusion_hidden_dim: 256
+  dropout: 0.4
+  freeze_backbone_epochs: 2 # Initial warm-up for classifier head before unfreezing ResNet34
+
+training:
+  epochs: 20
+  batch_size: 16
+  learning_rate: 0.0001
+  backbone_lr: 0.00002
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  lr_scheduler: "cosine"
+  early_stopping_patience: 6
+  num_workers: 0 # Recommended 0 for Windows multiprocessing safety
+
+inference:
+  threshold: 0.5 # >= 0.5 is SPOOF, < 0.5 is LIVE
+  smooth_window: 5 # Moving average filter across last N frames to eliminate jitter
+  webcam_id: 0
+  min_face_size: 60
